@@ -2,29 +2,28 @@
 # -*- coding: utf-8 -*-
 #
 #  fastdVerify.py 0.1
-#  
+#
 #  Copyright 2015 Felix Kaechele <felix@freifunk-leverkusen.de>
-#  
+#
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
 #  the Free Software Foundation; either version 2 of the License, or
 #  (at your option) any later version.
-#  
+#
 #  This program is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
 #  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #  GNU General Public License for more details.
-#  
+#
 #  You should have received a copy of the GNU General Public License
 #  along with this program; if not, write to the Free Software
 #  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
 #  MA 02110-1301, USA.
-#  
-#  
+#
+#
 
 import argparse
 import configparser
-import json
 import logging
 import logging.config
 import os
@@ -36,129 +35,134 @@ config = configparser.ConfigParser()
 
 
 def getHwidFromKey(key):
-	"""Get hwid for fastd peer with given public key
+    """Get hwid for fastd peer with given public key
 
-	Keyword arguments:
-	key - public fastd key of peer
-	"""
-	apiEndpoint = config['default']['peerNameEndpoint']
+    Keyword arguments:
+    key - public fastd key of peer
+    """
+    apiEndpoint = config['default']['peerNameEndpoint']
 
-	r = requests.get(apiEndpoint.format(key))
-	obj = r.json()
-	# Validate hwid (12 char, hexadecimal)
-	if re.match("[0-9a-z]{12}$", obj):
-		logging.debug("API Request getHwidFromKey took %s" % r.elapsed)
-		return obj
-	else:
-		raise Exception("hwid %s is invalid" % obj)
+    r = requests.get(apiEndpoint.format(key))
+    obj = r.json()
+    # Validate hwid (12 char, hexadecimal)
+    if re.match("[0-9a-z]{12}$", obj):
+        logging.debug("API Request getHwidFromKey took %s" % r.elapsed)
+        return obj
+    else:
+        raise Exception("hwid %s is invalid" % obj)
 
 
 def getInstanceFromKey(key):
-	"""Get fastd instance name for fastd peer with given public key
+    """Get fastd instance name for fastd peer with given public key
 
-	Keyword arguments:
-	key - public fastd key of peer
-	"""
-	apiEndpoint = config['default']['instanceNameEndpoint']
+    Keyword arguments:
+    key - public fastd key of peer
+    """
+    apiEndpoint = config['default']['instanceNameEndpoint']
 
-	r = requests.get(apiEndpoint.format(key))
-	obj = r.json()
+    r = requests.get(apiEndpoint.format(key))
+    obj = r.json()
 
-	logging.debug("API Request getInstanceFromKey took %s" % r.elapsed)
-	return obj
+    logging.debug("API Request getInstanceFromKey took %s" % r.elapsed)
+    return obj
 
 
 def verify(key):
-	"""Verify if a fastd peer is activated
+    """Verify if a fastd peer is activated
 
-	Keyword arguments:
-	key - public fastd key of peer
-	"""
-	apiEndpoint = config['default']['verificationEndpoint']
+    Keyword arguments:
+    key - public fastd key of peer
+    """
+    apiEndpoint = config['default']['verificationEndpoint']
 
-	r = requests.get(apiEndpoint.format(key))
-	obj = r.json()
+    r = requests.get(apiEndpoint.format(key))
+    obj = r.json()
 
-	logging.debug("API Request verify took %s" % r.elapsed)
-	if obj == True:
-		logging.info("Successfully verified unknown fastd peer with key %s" % key)
-		return True
-	else:
-		logging.info("Failed to verify unknown fastd peer with key %s" % key)
-		return False
+    logging.debug("API Request verify took %s" % r.elapsed)
+    if obj is True:
+        logging.info(
+            "Successfully verified unknown fastd peer with key %s" % key)
+        return True
+    else:
+        logging.info("Failed to verify unknown fastd peer with key %s" % key)
+        return False
 
 
 def createPeerfile(key):
-	"""Create a static peer file for fastd peer with given key
+    """Create a static peer file for fastd peer with given key
 
-	Keyword arguments:
-	key - public fastd key of peer
-	"""
-	hwid = getHwidFromKey(key)
-	instance = getInstanceFromKey(key)
+    Keyword arguments:
+    key - public fastd key of peer
+    """
+    hwid = getHwidFromKey(key)
+    instance = getInstanceFromKey(key)
 
-	# build the path for the peer file from the template string
-	peerfilePath = config['default']['peerfilePathTemplate'].format(instance, hwid)
+    # build the path for the peer file from the template string
+    peerfilePath = config['default'][
+        'peerfilePathTemplate'].format(instance, hwid)
 
-	logging.info("Creating peer file for fast peer with key %s in %s" % (key, peerfilePath))
-	f = open(peerfilePath, "w")
-	f.write(config['default']['peerfileTemplate'].format(key))
+    logging.info(
+        "Creating peer file for fast peer with key %s in %s" % (key, peerfilePath))
+    f = open(peerfilePath, "w")
+    f.write(config['default']['peerfileTemplate'].format(key))
 
-	# rehash peer files for calling fastd instance
-	# but only if we are called by fastd
-	fastdPid = int(os.environ.get('FASTD_PID'))
-	if not fastdPid == None:
-		logging.debug("Sending SIGHUP to fastd (%s)" % fastdPid)
-		os.kill(fastdPid, signal.SIGHUP)
+    # rehash peer files for calling fastd instance
+    # but only if we are called by fastd
+    fastdPid = int(os.environ.get('FASTD_PID'))
+    if fastdPid is not None:
+        logging.debug("Sending SIGHUP to fastd (%s)" % fastdPid)
+        os.kill(fastdPid, signal.SIGHUP)
 
 
 def main():
-	# Set up command line argument parsing
-	parser = argparse.ArgumentParser()
-	parser.add_argument("key", nargs="?", type=str, help="public key of fastd peer to be verified")
-	parser.add_argument("-c", "--config", help="Specify custom configuration file", default="/etc/fastd/verify.cfg")
-	args = parser.parse_args()
+    # Set up command line argument parsing
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "key", nargs="?", type=str, help="public key of fastd peer to be verified")
+    parser.add_argument(
+        "-c", "--config", help="Specify custom configuration file", default="/etc/fastd/verify.cfg")
+    args = parser.parse_args()
 
-	# Startup checks
-	if not os.path.isfile(args.config):
-		print("error: configuration file not found!")
-		return 1
+    # Startup checks
+    if not os.path.isfile(args.config):
+        print("error: configuration file not found!")
+        return 1
 
-	# read config file
-	config.read(args.config)
+    # read config file
+    config.read(args.config)
 
-	# Set up logging format and silence requests
-	logging.config.fileConfig(args.config)
-	logging.getLogger("requests").setLevel(logging.WARNING)
+    # Set up logging format and silence requests
+    logging.config.fileConfig(args.config)
+    logging.getLogger("requests").setLevel(logging.WARNING)
 
-	"""
-	Try to read the peer's public key
-	 1. from the cmdline arguments
-	 2. from the fastd environment variable
-	"""
-	if args.key:
-		key = args.key
-	elif os.environ.get("PEER_KEY"):
-		key = os.environ.get("PEER_KEY")
-	else:
-		print("error: no key given. aborting.")
-		return 1
+    """
+    Try to read the peer's public key
+     1. from the cmdline arguments
+     2. from the fastd environment variable
+    """
+    if args.key:
+        key = args.key
+    elif os.environ.get("PEER_KEY"):
+        key = os.environ.get("PEER_KEY")
+    else:
+        print("error: no key given. aborting.")
+        return 1
 
-	# do the actual verification
-	verified = verify(key)
+    # do the actual verification
+    verified = verify(key)
 
-	# maybe even write out a peer file for caching and failsafe purposes
-	if config['default'].getboolean('writePeerfiles') and verified:
-		createPeerfile(key)
+    # maybe even write out a peer file for caching and failsafe purposes
+    if config['default'].getboolean('writePeerfiles') and verified:
+        createPeerfile(key)
 
-	# peer was verified. return 0 to tell fast everything is fine
-	if verified:
-		return 0
+    # peer was verified. return 0 to tell fast everything is fine
+    if verified:
+        return 0
 
-	# oh no! something went wrong. tell fastd to deny the peer
-	return 1
+    # oh no! something went wrong. tell fastd to deny the peer
+    return 1
 
 
 if __name__ == '__main__':
-	returnCode = main()
-	exit(returnCode)
+    returnCode = main()
+    os.exit(returnCode)
