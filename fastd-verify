@@ -4,6 +4,7 @@
 #  fastdVerify.py 0.1
 #
 #  Copyright 2015 Felix Kaechele <felix@freifunk-leverkusen.de>
+#  Copyright 2015 RubenKelevra   <ruben@freifunk-leverkusen.de>
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -105,7 +106,8 @@ def createPeerfile(key):
         "Creating peer file for fast peer with key %s in %s" % (key, peerfilePath))
     f = open(peerfilePath, "w")
     f.write(config['default']['peerfileTemplate'].format(key))
-
+    f.close()
+    
     # rehash peer files for calling fastd instance
     # but only if we are called by fastd
     fastdPid = int(os.environ.get('FASTD_PID'))
