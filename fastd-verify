@@ -28,6 +28,7 @@ import configparser
 import logging
 import logging.config
 import os
+from sys import exit as sys_exit
 import re
 import requests
 import signal
@@ -167,4 +168,4 @@ def main():
 
 if __name__ == '__main__':
     returnCode = main()
-    os.exit(returnCode)
+    sys_exit(returnCode)
