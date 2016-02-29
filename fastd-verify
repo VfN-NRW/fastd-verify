@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 #  fastdVerify.py 0.1
 #
@@ -23,149 +22,150 @@
 #
 #
 
-import argparse
-import configparser
-import logging
-import logging.config
-import os
+from argparse import ArgumentParser
+from configparser import ConfigParser
+from logging import debug, info, WARNING, getLogger
+from logging.config import fileConfig
+from os import environ, kill, path
+from re import match as rematch
+from signal import SIGHUP
 from sys import exit as sys_exit
-import re
+
 import requests
-import signal
 
-config = configparser.ConfigParser()
-
-
-def getHwidFromKey(key):
-    """Get hwid for fastd peer with given public key
-
-    Keyword arguments:
-    key - public fastd key of peer
-    """
-    apiEndpoint = config['default']['peerNameEndpoint']
-
-    r = requests.get(apiEndpoint.format(key))
-    obj = r.json()
-    # Validate hwid (12 char, hexadecimal)
-    if re.match("[0-9a-z]{12}$", obj):
-        logging.debug("API Request getHwidFromKey took %s" % r.elapsed)
-        return obj
-    else:
-        raise Exception("hwid %s is invalid" % obj)
+config = ConfigParser()
 
 
-def getInstanceFromKey(key):
-    """Get fastd instance name for fastd peer with given public key
+def get_hwid_from_key(key):
+	"""Get hwid for fastd peer with given public key
 
-    Keyword arguments:
-    key - public fastd key of peer
-    """
-    apiEndpoint = config['default']['instanceNameEndpoint']
+	Keyword arguments:
+	:param key: - public fastd key of peer
+	"""
+	api_endpoint = config['default']['peerNameEndpoint']
 
-    r = requests.get(apiEndpoint.format(key))
-    obj = r.json()
+	r = requests.get(api_endpoint.format(key))
+	obj = r.json()
+	# Validate hwid (12 char, hexadecimal)
+	if rematch("[0-9a-z]{12}$", obj):
+		debug("API Request getHwidFromKey took %s" % r.elapsed)
+		return obj
+	else:
+		raise Exception("hwid %s is invalid" % obj)
 
-    logging.debug("API Request getInstanceFromKey took %s" % r.elapsed)
-    return obj
+
+def get_instance_from_key(key):
+	"""Get fastd instance name for fastd peer with given public key
+
+	Keyword arguments:
+	:param key: public fastd key of peer
+	"""
+	api_endpoint = config['default']['instanceNameEndpoint']
+
+	r = requests.get(api_endpoint.format(key))
+	obj = r.json()
+
+	debug("API Request getInstanceFromKey took %s" % r.elapsed)
+	return obj
 
 
 def verify(key):
-    """Verify if a fastd peer is activated
+	"""Verify if a fastd peer is activated
 
-    Keyword arguments:
-    key - public fastd key of peer
-    """
-    apiEndpoint = config['default']['verificationEndpoint']
+	Keyword arguments:
+	:param key: public fastd key of peer
+	"""
+	api_endpoint = config['default']['verificationEndpoint']
 
-    r = requests.get(apiEndpoint.format(key))
-    obj = r.json()
+	r = requests.get(api_endpoint.format(key))
+	obj = r.json()
 
-    logging.debug("API Request verify took %s" % r.elapsed)
-    if obj is True:
-        logging.info(
-            "Successfully verified unknown fastd peer with key %s" % key)
-        return True
-    else:
-        logging.info("Failed to verify unknown fastd peer with key %s" % key)
-        return False
+	debug("API Request verify took %s" % r.elapsed)
+	if obj is True:
+		info(
+			"Successfully verified unknown fastd peer with key %s" % key)
+		return True
+	else:
+		info("Failed to verify unknown fastd peer with key %s" % key)
+		return False
 
 
-def createPeerfile(key):
-    """Create a static peer file for fastd peer with given key
+def create_peerfile(key):
+	"""Create a static peer file for fastd peer with given key
 
-    Keyword arguments:
-    key - public fastd key of peer
-    """
-    hwid = getHwidFromKey(key)
-    instance = getInstanceFromKey(key)
+	Keyword arguments:
+	:param key: public fastd key of peer
+	"""
+	hwid = get_hwid_from_key(key)
+	instance = get_instance_from_key(key)
 
-    # build the path for the peer file from the template string
-    peerfilePath = config['default'][
-        'peerfilePathTemplate'].format(instance, hwid)
+	# build the path for the peer file from the template string
+	peerfile_path = config['default'][
+		'peerfilePathTemplate'].format(instance, hwid)
 
-    logging.info(
-        "Creating peer file for fast peer with key %s in %s" % (key, peerfilePath))
-    f = open(peerfilePath, "w")
-    f.write(config['default']['peerfileTemplate'].format(key))
-    f.close()
-    
-    # rehash peer files for calling fastd instance
-    # but only if we are called by fastd
-    fastdPid = int(os.environ.get('FASTD_PID'))
-    if fastdPid is not None:
-        logging.debug("Sending SIGHUP to fastd (%s)" % fastdPid)
-        os.kill(fastdPid, signal.SIGHUP)
+	info(
+		"Creating peer file for fast peer with key %s in %s" % (key, peerfile_path))
+	f = open(peerfile_path, "w")
+	f.write(config['default']['peerfileTemplate'].format(key))
+	f.close()
+
+	# rehash peer files for calling fastd instance
+	# but only if we are called by fastd
+	fastd_pid = int(environ.get('FASTD_PID'))
+	if fastd_pid is not None:
+		debug("Sending SIGHUP to fastd (%s)" % fastd_pid)
+		kill(fastd_pid, SIGHUP)
 
 
 def main():
-    # Set up command line argument parsing
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "key", nargs="?", type=str, help="public key of fastd peer to be verified")
-    parser.add_argument(
-        "-c", "--config", help="Specify custom configuration file", default="/etc/fastd/verify.cfg")
-    args = parser.parse_args()
+	# Set up command line argument parsing
+	parser = ArgumentParser()
+	parser.add_argument(
+		"key", nargs="?", type=str, help="public key of fastd peer to be verified")
+	parser.add_argument(
+		"-c", "--config", help="Specify custom configuration file", default="/etc/fastd/verify.cfg")
+	args = parser.parse_args()
 
-    # Startup checks
-    if not os.path.isfile(args.config):
-        print("error: configuration file not found!")
-        return 1
+	# Startup checks
+	if not path.isfile(args.config):
+		print("error: configuration file not found!")
+		return 1
 
-    # read config file
-    config.read(args.config)
+	# read config file
+	config.read(args.config)
 
-    # Set up logging format and silence requests
-    logging.config.fileConfig(args.config)
-    logging.getLogger("requests").setLevel(logging.WARNING)
+	# Set up logging format and silence requests
+	fileConfig(args.config)
+	getLogger("requests").setLevel(WARNING)
 
-    """
-    Try to read the peer's public key
-     1. from the cmdline arguments
-     2. from the fastd environment variable
-    """
-    if args.key:
-        key = args.key
-    elif os.environ.get("PEER_KEY"):
-        key = os.environ.get("PEER_KEY")
-    else:
-        print("error: no key given. aborting.")
-        return 1
+	"""
+	Try to read the peer's public key
+	1. from the cmdline arguments
+	2. from the fastd environment variable
+	"""
+	if args.key:
+		key = args.key
+	elif environ.get("PEER_KEY"):
+		key = environ.get("PEER_KEY")
+	else:
+		print("error: no key given. aborting.")
+		return 1
 
-    # do the actual verification
-    verified = verify(key)
+	# do the actual verification
+	verified = verify(key)
 
-    # maybe even write out a peer file for caching and failsafe purposes
-    if config['default'].getboolean('writePeerfiles') and verified:
-        createPeerfile(key)
+	# maybe even write out a peer file for caching and failsafe purposes
+	if config['default'].getboolean('writePeerfiles') and verified:
+		create_peerfile(key)
 
-    # peer was verified. return 0 to tell fast everything is fine
-    if verified:
-        return 0
+	# peer was verified. return 0 to tell fast everything is fine
+	if verified:
+		return 0
 
-    # oh no! something went wrong. tell fastd to deny the peer
-    return 1
+	# oh no! something went wrong. tell fastd to deny the peer
+	return 1
 
 
 if __name__ == '__main__':
-    returnCode = main()
-    sys_exit(returnCode)
+	returnCode = main()
+	sys_exit(returnCode)
