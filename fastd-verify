@@ -26,7 +26,7 @@ from argparse import ArgumentParser
 from configparser import ConfigParser
 from logging import WARNING, debug, getLogger, info
 from logging.config import fileConfig
-from os import environ, kill, path, scandir, remove
+from os import environ, kill, path, remove, scandir
 from re import match as rematch
 from signal import SIGHUP
 from sys import exit as sys_exit
