@@ -24,7 +24,7 @@
 
 from argparse import ArgumentParser
 from configparser import ConfigParser
-from logging import debug, info, WARNING, getLogger
+from logging import WARNING, debug, getLogger, info
 from logging.config import fileConfig
 from os import environ, kill, path
 from re import match as rematch
