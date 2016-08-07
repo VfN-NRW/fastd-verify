@@ -26,7 +26,7 @@ from argparse import ArgumentParser
 from configparser import ConfigParser
 from logging import WARNING, debug, getLogger, info
 from logging.config import fileConfig
-from os import environ, kill, path
+from os import environ, kill, path, scandir, remove
 from re import match as rematch
 from signal import SIGHUP
 from sys import exit as sys_exit
@@ -90,14 +90,38 @@ def verify(key):
 		return False
 
 
-def create_peerfile(key):
+def remove_peerfiles(instance, key):
+	"""Removes existing static peer files with the given key
+
+	Keyword arguments:
+	:param key: public fastd key
+	"""
+
+	keyfile_folder = config['default']['peerfilePathTemplate']
+	format(instance, "")
+	delete_list = []
+
+	debug("Scanning directory for old key-files which contains new peer-key '%s'" % key)
+
+	for entry in scandir(keyfile_folder):
+		if not entry.name.startswith('.') and entry.is_file():
+			with open(entry.name, 'r') as keyfile:
+				for line in keyfile:
+					if key in line:
+						delete_list.append(entry.name)
+						break
+	for old_keyfile in delete_list:
+		debug("Removing old keyfile '%s', it contained new peer-key '%s'" % (old_keyfile, key))
+		remove(keyfile_folder + old_keyfile)
+
+
+def create_peerfile(instance, key):
 	"""Create a static peer file for fastd peer with given key
 
 	Keyword arguments:
 	:param key: public fastd key of peer
 	"""
 	hwid = get_hwid_from_key(key)
-	instance = get_instance_from_key(key)
 
 	# build the path for the peer file from the template string
 	peerfile_path = config['default'][
@@ -155,8 +179,13 @@ def main():
 	verified = verify(key)
 
 	# maybe even write out a peer file for caching and failsafe purposes
-	if config['default'].getboolean('writePeerfiles') and verified:
-		create_peerfile(key)
+	with config['default'] as c:
+		if c.getboolean('writePeerfiles') and verified:
+			fastd_instance = get_instance_from_key(key)
+
+			if c.getboolean('rmKeyDups'):
+				remove_peerfiles(fastd_instance, key)
+			create_peerfile(fastd_instance, key)
 
 	# peer was verified. return 0 to tell fast everything is fine
 	if verified:
