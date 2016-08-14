@@ -97,15 +97,14 @@ def remove_peerfiles(instance, key):
 	:param key: public fastd key
 	"""
 
-	keyfile_folder = config['default']['peerfilePathTemplate']
-	format(instance, "")
+	keyfile_folder = config['default']['peerfilePathTemplate'].format(instance, "")
 	delete_list = []
 
 	debug("Scanning directory for old key-files which contains new peer-key '%s'" % key)
 
 	for entry in scandir(keyfile_folder):
 		if not entry.name.startswith('.') and entry.is_file():
-			with open(entry.name, 'r') as keyfile:
+			with open(keyfile_folder + entry.name, 'r') as keyfile:
 				for line in keyfile:
 					if key in line:
 						delete_list.append(entry.name)
@@ -179,13 +178,12 @@ def main():
 	verified = verify(key)
 
 	# maybe even write out a peer file for caching and failsafe purposes
-	with config['default'] as c:
-		if c.getboolean('writePeerfiles') and verified:
-			fastd_instance = get_instance_from_key(key)
+	if config['default'].getboolean('writePeerfiles') and verified:
+		fastd_instance = get_instance_from_key(key)
 
-			if c.getboolean('rmKeyDups'):
-				remove_peerfiles(fastd_instance, key)
-			create_peerfile(fastd_instance, key)
+		if config['default'].getboolean('rmKeyDups'):
+			remove_peerfiles(fastd_instance, key)
+		create_peerfile(fastd_instance, key)
 
 	# peer was verified. return 0 to tell fast everything is fine
 	if verified:
