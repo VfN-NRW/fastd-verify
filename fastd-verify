@@ -134,10 +134,12 @@ def create_peerfile(instance, key):
 
 	# rehash peer files for calling fastd instance
 	# but only if we are called by fastd
-	fastd_pid = int(environ.get('FASTD_PID'))
-	if fastd_pid is not None:
+	try:
+		fastd_pid = int(environ.get('FASTD_PID'))
 		debug("Sending SIGHUP to fastd (%s)" % fastd_pid)
 		kill(fastd_pid, SIGHUP)
+	except:
+		info("Not being called from fastd, not sending SIGHUP")
 
 
 def main():
