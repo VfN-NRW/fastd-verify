@@ -142,7 +142,7 @@ def create_peerfile(instance, key):
 		info("Not being called from fastd, not sending SIGHUP")
 
 
-def main():
+if __name__ == '__main__':
 	# Set up command line argument parsing
 	parser = ArgumentParser()
 	parser.add_argument(
@@ -154,7 +154,7 @@ def main():
 	# Startup checks
 	if not path.isfile(args.config):
 		print("error: configuration file not found!")
-		return 1
+		sys_exit(1)
 
 	# read config file
 	config.read(args.config)
@@ -174,7 +174,7 @@ def main():
 		key = environ.get("PEER_KEY")
 	else:
 		print("error: no key given. aborting.")
-		return 1
+		sys_exit(1)
 
 	# do the actual verification
 	verified = verify(key)
@@ -189,12 +189,7 @@ def main():
 
 	# peer was verified. return 0 to tell fast everything is fine
 	if verified:
-		return 0
+		sys_exit(0)
 
 	# oh no! something went wrong. tell fastd to deny the peer
-	return 1
-
-
-if __name__ == '__main__':
-	returnCode = main()
-	sys_exit(returnCode)
+	sys_exit(1)
